@@ -9,12 +9,16 @@ A Python/Pillow generator of print-ready card images (300 dpi, with bleed) for t
 ## Commands
 
 ```bash
-pip install -r requirements.txt               # Pillow only
+pip install -r requirements.txt               # Pillow + Streamlit
+streamlit run app.py                          # web UI (also what Streamlit Community Cloud runs)
 python3 render_card.py --list                 # deck contents + copy counts (must total 244)
 python3 render_card.py Academy --lang es      # one or more card keys
 python3 render_card.py --all --lang en        # every card face + the shared order-card back
 python3 render_card.py --all --bleed 2        # bleed in mm (default 3, the common print-shop spec)
+python3 render_card.py --all --sets Standard Republic --types order site
 ```
+
+Output file names carry the copy count: `Academy_es(3x).png`. Deck selection, naming and batch rendering live in `gtr/deck.py` and are shared by the CLI and `app.py` — change them there, not in either front-end. Headless UI check: `streamlit.testing.v1.AppTest.from_file("app.py").run()`.
 
 Output goes to `output/` (gitignored). There is no test suite; validate by rendering and looking at the PNGs.
 

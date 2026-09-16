@@ -6,14 +6,27 @@ Nace del trabajo original de EMC85 que se encuentra aqui: https://github.com/ecm
 
 ## Uso
 
+### Interfaz web (Streamlit)
+
 ```bash
 pip install -r requirements.txt
+streamlit run app.py
+```
+
+Eliges idioma, sets (base, República, Imperio, fan-made), tipos de carta y sangrado; ves una vista previa y descargas un zip con todas las cartas. Desplegable tal cual en Streamlit Community Cloud apuntando a `app.py`.
+
+### Línea de comandos
+
+```bash
 python3 render_card.py --list                # contenido del mazo y copias (244 cartas, 68 distintas)
 python3 render_card.py Academy               # una carta, en inglés
 python3 render_card.py Academy Bar --lang es # varias, en español
 python3 render_card.py --all --lang es       # todas las cartas (anverso y reverso) + reverso común
 python3 render_card.py --all --bleed 2       # sangrado de 2 mm en vez de los 3 mm por defecto
+python3 render_card.py --all --sets Standard Republic --types order site
 ```
+
+Cada PNG lleva las copias en el nombre: `Academy_es(3x).png`, `Site Wood_back_es(6x).png`, `Order Back(195x).png`.
 
 Los PNG salen en `output/`, a 300 dpi. Tamaño póker (63,5 × 88,9 mm) más el sangrado por cada lado: con 3 mm, 820 × 1120 px. Las esquinas son rectas: el redondeo lo hace la imprenta al troquelar.
 
@@ -45,6 +58,8 @@ Una celda `*_es` vacía usa el inglés. Para añadir un idioma, añade columnas 
 
 - `gtr/data.py` — carga de CSV, acceso a textos por idioma.
 - `gtr/render.py` — geometría, primitivas Pillow, maquetado de texto, `Renderer`.
+- `gtr/deck.py` — filtro por set/tipo, nombres de fichero y renderizado por lotes (compartido por CLI y app).
+- `app.py` — interfaz Streamlit.
 - `assets/images/` — ilustraciones (reescaladas 4x con Upscayl); `assets/fonts/` — Neuzeit Grotesk.
 
 ## Pendiente
