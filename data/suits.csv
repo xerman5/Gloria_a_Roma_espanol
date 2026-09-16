@@ -1,0 +1,7 @@
+key,value,color,role_icon,influence_icon,role_en,role_es
+Rubble,1,#FBA61C,RoleIcons/Laborer,Influence/YellowInfluence,Laborer,Obrero
+Wood,1,#3DAD48,RoleIcons/Craftsman,Influence/GreenInfluence,Craftsman,Artesano
+Concrete,2,#9B9B93,RoleIcons/Architect,Influence/GreyInfluence,Architect,Arquitecto
+Brick,2,#EE1C25,RoleIcons/Legionary,Influence/RedInfluence,Legionary,Legionario
+Marble,3,#9E2F74,RoleIcons/Patron,Influence/PurpleInfluence,Patron,Mecenas
+Stone,3,#00B8DF,RoleIcons/Merchant,Influence/BlueInfluence,Merchant,Comerciante
