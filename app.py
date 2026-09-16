@@ -9,8 +9,8 @@ import zipfile
 import streamlit as st
 
 from gtr.data import languages, load_cards
-from gtr.deck import CARD_TYPES, SETS, render_deck, select_cards
-from gtr.render import DPI, CardGeometry, CardSize, Renderer
+from gtr.deck import CARD_TYPES, SETS, png_bytes, render_deck, select_cards
+from gtr.render import CardGeometry, CardSize, Renderer
 
 LANGUAGE_NAMES = {"en": "English", "es": "Español"}
 SET_LABELS = {
@@ -29,7 +29,7 @@ TYPE_LABELS = {
 
 st.set_page_config(page_title="Gloria a Roma — generador de cartas", page_icon="🏛️")
 st.title("Gloria a Roma — generador de cartas")
-st.caption("PNG a 300 dpi listos para imprenta. El nombre de cada fichero incluye las copias a imprimir.")
+st.caption("PNG RGB a 300 dpi con perfil sRGB, listos para imprenta. El nombre de cada fichero incluye las copias a imprimir.")
 
 with st.sidebar:
     st.header("Configuración")
@@ -65,9 +65,7 @@ if st.button("Generar zip", type="primary", disabled=not selected):
     total = sum(2 if c.type in ("site", "jack") else 1 for c in selected) + (1 if include_back else 0)
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as zf:
         for i, (name, image) in enumerate(render_deck(renderer, selected, include_back), start=1):
-            png = io.BytesIO()
-            image.save(png, "PNG", dpi=(DPI, DPI))
-            zf.writestr(f"{name}.png", png.getvalue())
+            zf.writestr(f"{name}.png", png_bytes(image))
             progress.progress(min(i / total, 1.0), text=f"Renderizando… {name}")
     progress.empty()
     st.success(f"Listo: {total} imágenes.")

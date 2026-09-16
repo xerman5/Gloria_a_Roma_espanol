@@ -12,8 +12,8 @@ from collections import Counter
 from pathlib import Path
 
 from gtr.data import load_cards
-from gtr.deck import CARD_TYPES, SETS, render_deck, select_cards
-from gtr.render import DPI, CardGeometry, CardSize, Renderer
+from gtr.deck import CARD_TYPES, SETS, png_bytes, render_deck, select_cards
+from gtr.render import CardGeometry, CardSize, Renderer
 
 
 def list_deck(cards):
@@ -56,7 +56,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, image in render_deck(renderer, cards, include_order_back=args.all):
         path = out_dir / f"{name}.png"
-        image.save(path, dpi=(DPI, DPI))
+        path.write_bytes(png_bytes(image))
         print(f"Wrote {path}")
 
 

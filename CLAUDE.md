@@ -18,7 +18,7 @@ python3 render_card.py --all --bleed 2        # bleed in mm (default 3, the comm
 python3 render_card.py --all --sets Standard Republic --types order site
 ```
 
-Output file names carry the copy count: `Academy_es(3x).png`. Deck selection, naming and batch rendering live in `gtr/deck.py` and are shared by the CLI and `app.py` — change them there, not in either front-end. Headless UI check: `streamlit.testing.v1.AppTest.from_file("app.py").run()`.
+Output file names carry the copy count: `Academy_es(3x).png`. Every PNG goes through `deck.png_bytes`: flattened onto white, RGB (no alpha), 300 dpi, sRGB ICC embedded — print shops reject alpha and untagged files, so don't save images any other way. Deck selection, naming and batch rendering live in `gtr/deck.py` and are shared by the CLI and `app.py` — change them there, not in either front-end. Headless UI check: `streamlit.testing.v1.AppTest.from_file("app.py").run()`.
 
 Output goes to `output/` (gitignored). There is no test suite; validate by rendering and looking at the PNGs.
 

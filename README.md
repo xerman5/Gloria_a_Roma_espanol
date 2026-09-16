@@ -28,7 +28,7 @@ python3 render_card.py --all --sets Standard Republic --types order site
 
 Cada PNG lleva las copias en el nombre: `Academy_es(3x).png`, `Site Wood_back_es(6x).png`, `Order Back(195x).png`.
 
-Los PNG salen en `output/`, a 300 dpi. Tamaño póker (63,5 × 88,9 mm) más el sangrado por cada lado: con 3 mm, 820 × 1120 px. Las esquinas son rectas: el redondeo lo hace la imprenta al troquelar.
+Los PNG salen en `output/`: RGB aplanado sobre blanco (sin transparencia), 300 dpi y perfil sRGB incrustado. Tamaño póker (63,5 × 88,9 mm) más el sangrado por cada lado: con 3 mm, 820 × 1120 px. Las esquinas son rectas: el redondeo lo hace la imprenta al troquelar.
 
 ## Fuente de verdad: `data/cards.csv`
 

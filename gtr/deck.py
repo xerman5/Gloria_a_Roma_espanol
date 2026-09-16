@@ -1,7 +1,13 @@
-"""Deck selection and batch rendering shared by the CLI and the web app."""
+"""Deck selection, batch rendering and print-ready export shared by the CLI and the web app."""
+
+import io
+
+from PIL import Image, ImageCms
 
 from .data import Card
-from .render import Renderer
+from .render import DPI, Renderer
+
+SRGB_PROFILE = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
 
 CARD_TYPES = ["order", "site", "merchant_bonus", "leader", "jack"]
 SETS = ["Standard", "Republic", "Imperium", "Promo"]
@@ -29,3 +35,17 @@ def render_deck(renderer: Renderer, cards: list, include_order_back: bool = True
     order_copies = sum(c.copies for c in cards if c.type == "order")
     if include_order_back and order_copies:
         yield f"Order Back({order_copies}x)", renderer.order_card_back()
+
+
+def to_print_rgb(image: Image.Image) -> Image.Image:
+    """Flatten transparency onto white and drop the alpha channel: print shops want plain RGB."""
+    flat = Image.new("RGB", image.size, (255, 255, 255))
+    flat.paste(image, mask=image.split()[-1])
+    return flat
+
+
+def png_bytes(image: Image.Image) -> bytes:
+    """Print-ready PNG: flattened RGB, 300 dpi, sRGB profile embedded."""
+    buffer = io.BytesIO()
+    to_print_rgb(image).save(buffer, "PNG", dpi=(DPI, DPI), icc_profile=SRGB_PROFILE)
+    return buffer.getvalue()
