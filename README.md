@@ -1,4 +1,4 @@
-# GtR — generador de cartas de Glory to Rome
+# GtR — generador de cartas de Glory to Rome en Español (Black Edition + promos)
 
 Genera imágenes de cartas listas para imprimir (300 dpi, con sangrado) a partir de los assets en `assets/` y los datos en `data/`. Es un port a Python/Pillow del generador original en .NET, con soporte multi-idioma.
 Nace del trabajo original de EMC85 que se encuentra aqui: https://github.com/ecm85/GtR
