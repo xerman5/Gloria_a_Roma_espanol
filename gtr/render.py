@@ -45,6 +45,7 @@ JACK_TEXT_COLOR = (208, 208, 208, 255)
 # Letter-spacing (tracking), as in the original: headers use a three-per-em space between letters,
 # everything else a four-per-em space. The trailing space also acts as the word separator.
 HEADER_SPACE = "\u2004"
+HEADER_WORD_GAP = "  "  # tracked capitals need a wide word gap to read as separate words
 TEXT_SPACE = "\u2005"
 WORD_SPACER = TEXT_SPACE
 
@@ -271,7 +272,7 @@ def draw_fragments_centered(canvas, fragments, rect, center_vertically: bool, lo
         """Line width minus the invisible tail (tracking space + padding) of its last word, so that
         centering is done on ink, not on the trailing spacer."""
         last = line[-1][0]
-        tail = extra_w + draw.textlength(last.text, font=last.font) - draw.textlength(last.text.rstrip(HEADER_SPACE + TEXT_SPACE), font=last.font)
+        tail = extra_w + draw.textlength(last.text, font=last.font) - draw.textlength(last.text.rstrip(HEADER_SPACE + TEXT_SPACE + ' '), font=last.font)
         return sum(m[1] for m in line) - tail
 
     total_width = max(visible_width(line) for line in lines)
@@ -300,9 +301,10 @@ def draw_fragments_centered(canvas, fragments, rect, center_vertically: bool, lo
 
 
 def header_fragments(text: str, color=BLACK):
-    """Card/role headers: one word per line, uppercase."""
-    return [TextFragment(tracked(w, HEADER_SPACE), FONT_HEADER, color, i > 0)
-            for i, w in enumerate(text.upper().split(" "))]
+    """Card headers: uppercase, tracked, flowing naturally and wrapping only when a line is full.
+    A real space separates words so they don't read as one ("BONUSDE")."""
+    return [TextFragment(tracked(w, HEADER_SPACE) + HEADER_WORD_GAP, FONT_HEADER, color)
+            for w in text.upper().split(" ")]
 
 
 # --- renderer -----------------------------------------------------------------
