@@ -42,6 +42,7 @@ Una fila por carta distinta, con sus copias físicas. Columnas:
 | `set` | `Standard`, `Republic`, `Imperium`, `Promo` (las 10 fan-made de BGG) |
 | `copies` | copias a imprimir |
 | `image`, `back_image` | ilustración, relativa a `assets/images/` sin extensión |
+| `image_offset` | corrección horizontal de la ilustración, fracción del ancho (p. ej. `-0.05` = 5 % a la izquierda); vacío = centrado automático |
 | `title_en`, `title_es` | título |
 | `text_en`, `text_es` | texto |
 | `back_text_en`, `back_text_es` | texto del reverso (solo sitios) |
@@ -60,7 +61,7 @@ Una celda `*_es` vacía usa el inglés. Para añadir un idioma, añade columnas 
 - `gtr/render.py` — geometría, primitivas Pillow, maquetado de texto, `Renderer`.
 - `gtr/deck.py` — filtro por set/tipo, nombres de fichero y renderizado por lotes (compartido por CLI y app).
 - `app.py` — interfaz Streamlit.
-- `assets/images/` — ilustraciones (reescaladas 4x con Upscayl); `assets/fonts/` — Neuzeit Grotesk.
+- `assets/images/` — ilustraciones vectoriales (SVG); `assets/fonts/` — Neuzeit Grotesk. Requiere `cairosvg` (y `libcairo2` en el sistema, ver `packages.txt`).
 
 ## Pendiente
 

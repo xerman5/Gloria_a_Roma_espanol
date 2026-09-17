@@ -1,11 +1,17 @@
 """Card rendering with Pillow. Layout mirrors the original .NET GloryToRomeImageCreator:
 everything is positioned as a percentage of the card's usable rectangle so it scales with card size."""
 
+import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+try:
+    import cairosvg  # vector artwork; needs libcairo (see packages.txt)
+except ImportError:
+    cairosvg = None
 
 from .data import Card, Suit, load_cards, load_suits
 
@@ -16,7 +22,7 @@ FONTS_DIR = REPO_ROOT / "assets" / "fonts"
 DPI = 300
 _DPI_FACTOR = DPI / 96  # original font sizes were specified at 96 dpi
 HEADER_FONT_SIZE = int(18.5 * _DPI_FACTOR)
-BODY_FONT_SIZE = int(10 * _DPI_FACTOR)
+BODY_FONT_SIZE = int(11 * _DPI_FACTOR)
 
 BLACK = (0, 0, 0, 255)
 WHITE = (255, 255, 255, 255)
@@ -36,8 +42,16 @@ STRIPES_PER_CARD = 16
 JACK_IMAGE_OFFSET_PCT = 0.30
 JACK_TEXT_COLOR = (208, 208, 208, 255)
 
-# Original text used U+2005 between words for GDI+ kerning; we keep it for fidelity.
-WORD_SPACER = "\u2005"  # four-per-em space
+# Letter-spacing (tracking), as in the original: headers use a three-per-em space between letters,
+# everything else a four-per-em space. The trailing space also acts as the word separator.
+HEADER_SPACE = "\u2004"
+TEXT_SPACE = "\u2005"
+WORD_SPACER = TEXT_SPACE
+
+
+def tracked(text: str, space: str = TEXT_SPACE) -> str:
+    """Insert `space` between the letters of `text` and after it."""
+    return space.join(text) + space
 
 # Bold: any ALL-CAPS word (role/material names, THINKER, JACK, VP...) or x2 / +N.
 BOLD_WORD = re.compile(r"^[^\w]*(?:[A-ZÁÉÍÓÚÑ]{2,}|x2|\+\d)[^\w]*$")
@@ -83,34 +97,61 @@ class CardGeometry:
 
 # --- image primitives ---------------------------------------------------------
 
-def load_png(image: str) -> Image.Image:
-    """`image` is a path relative to assets/images without extension, e.g. 'CardImages/Academy'."""
+SUIT_COLOR_TOLERANCE = 24  # max per-channel distance for a traced fill to count as "the suit colour"
+
+
+def _snap_fill_to_suit(svg_text: str, suit_color) -> str:
+    """Traced SVGs carry the suit colour slightly off (e.g. #da242c for #ee1c25). Replace the single
+    fill closest to the suit colour so artwork matches the text and icons exactly; leave other colours alone."""
+    target = suit_color[:3]
+    fills = set(re.findall(r'fill="(#[0-9a-fA-F]{6})"', svg_text))
+    if not fills:
+        return svg_text
+    def distance(h):
+        rgb = tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
+        return max(abs(a - b) for a, b in zip(rgb, target))
+    closest = min(fills, key=distance)
+    if distance(closest) > SUIT_COLOR_TOLERANCE:
+        return svg_text
+    return svg_text.replace(f'fill="{closest}"', 'fill="#%02x%02x%02x"' % target)
+
+
+def load_png(image: str, width: int = None, suit_color=None) -> Image.Image:
+    """`image` is a path relative to assets/images without extension, e.g. 'CardImages/Academy'.
+    An SVG next to the PNG takes precedence and is rasterized at `width` (or its intrinsic size);
+    with `suit_color`, its traced suit colour is snapped to that exact colour first."""
+    svg = ASSETS_DIR / f"{image}.svg"
+    if svg.exists():
+        if cairosvg is None:
+            raise RuntimeError(f"{svg.name} needs the 'cairosvg' package (pip install -r requirements.txt)")
+        text = svg.read_text(encoding="utf-8")
+        if suit_color:
+            text = _snap_fill_to_suit(text, suit_color)
+        png = cairosvg.svg2png(bytestring=text.encode("utf-8"), output_width=width, url=str(svg))
+        return Image.open(io.BytesIO(png)).convert("RGBA")
     return Image.open(ASSETS_DIR / f"{image}.png").convert("RGBA")
 
 
-def paste_scaled(canvas: Image.Image, image: str, x: int, y: int, width: int, height: int):
-    img = load_png(image).resize((max(1, width), max(1, height)), Image.LANCZOS)
+def paste_scaled(canvas: Image.Image, image: str, x: int, y: int, width: int, height: int, suit_color=None):
+    img = load_png(image, width, suit_color).resize((max(1, width), max(1, height)), Image.LANCZOS)
     canvas.alpha_composite(img, (x, y))
 
 
-def paste_full_width(canvas: Image.Image, image: str, x: int, y: int, width: int,
-                     center_on_content: bool = False) -> int:
-    """Scale to `width` keeping aspect ratio; returns the drawn height.
-    With center_on_content, the artwork's non-transparent bounding box is centered horizontally."""
-    img = load_png(image)
+def paste_full_width(canvas: Image.Image, image: str, x: int, y: int, width: int, suit_color=None) -> int:
+    """Scale to `width` keeping aspect ratio and paste as authored; returns the drawn height.
+    Artwork is placed on its own canvas by the illustrator, so no auto-centering: shifting by the
+    content's bounding box clipped wide asymmetric pieces (Forum Romanum's obelisk, Stairway)."""
+    img = load_png(image, width, suit_color)
     height = width * img.height // img.width
-    img = img.resize((width, height), Image.LANCZOS)
-    if center_on_content:
-        bbox = img.split()[-1].getbbox()
-        if bbox:
-            x += int(width / 2 - (bbox[0] + bbox[2]) / 2)
+    if img.size != (width, height):
+        img = img.resize((width, height), Image.LANCZOS)
     canvas.paste(img, (x, y), img)
     return height
 
 
-def paste_fit_centered(canvas: Image.Image, image: str, x: int, y: int, max_w: int, max_h: int):
+def paste_fit_centered(canvas: Image.Image, image: str, x: int, y: int, max_w: int, max_h: int, suit_color=None):
     """Scale to fit inside max_w × max_h keeping aspect ratio, centered in that box."""
-    img = load_png(image)
+    img = load_png(image, max_w, suit_color)
     aspect = img.width / img.height
     if max_w / max_h <= aspect:
         w, h = max_w, round(max_w / aspect)
@@ -167,7 +208,8 @@ def _measure(draw, fragment: TextFragment, extra_w=0, extra_h=0):
 
 
 def _wrap(max_width, measured):
-    """Greedy word wrap ignoring forced breaks."""
+    """Greedy word wrap ignoring forced breaks, with widow control: a single word is never left
+    alone on the last line if the previous line can spare one."""
     lines, current, width = [], [], 0
     for item in measured:
         if current and width + item[1] > max_width:
@@ -177,6 +219,8 @@ def _wrap(max_width, measured):
         width += item[1]
     if current:
         lines.append(current)
+    if len(lines) >= 2 and len(lines[-1]) == 1 and len(lines[-2]) >= 3:
+        lines[-1].insert(0, lines[-2].pop())
     return lines
 
 
@@ -222,13 +266,21 @@ def draw_fragments_centered(canvas, fragments, rect, center_vertically: bool, lo
     measured = [(f, *_measure(draw, f, extra_w, extra_h)) for f in fragments]
     lines = _group_by_line(w, measured)
     total_height = sum(max(m[2] for m in line) for line in lines)
-    total_width = max(sum(m[1] for m in line) for line in lines)
-    min_x = x + (w // 2 - total_width // 2)
+
+    def visible_width(line):
+        """Line width minus the invisible tail (tracking space + padding) of its last word, so that
+        centering is done on ink, not on the trailing spacer."""
+        last = line[-1][0]
+        tail = extra_w + draw.textlength(last.text, font=last.font) - draw.textlength(last.text.rstrip(HEADER_SPACE + TEXT_SPACE), font=last.font)
+        return sum(m[1] for m in line) - tail
+
+    total_width = max(visible_width(line) for line in lines)
+    min_x = x + int(w / 2 - total_width / 2)
 
     def paint(target_draw, top):
         current_y = top
         for line in lines:
-            current_x = x + (w // 2 - sum(m[1] for m in line) // 2)
+            current_x = x + int(w / 2 - visible_width(line) / 2)
             for fragment, fw, _ in line:
                 target_draw.text((current_x, current_y), fragment.text, font=fragment.font, fill=fragment.color)
                 current_x += fw
@@ -243,13 +295,14 @@ def draw_fragments_centered(canvas, fragments, rect, center_vertically: bool, lo
         if ink:
             top = y + (y + h // 2) - (ink[1] + ink[3]) // 2
     draw_translucent(canvas, lambda d: d.rectangle(
-        (min_x, top, min_x + total_width, top + total_height), fill=(255, 255, 255, background_alpha)))
+        (min_x, top, min_x + int(total_width), top + total_height), fill=(255, 255, 255, background_alpha)))
     return paint(draw, top)  # bottom of the drawn text block
 
 
 def header_fragments(text: str, color=BLACK):
     """Card/role headers: one word per line, uppercase."""
-    return [TextFragment(w, FONT_HEADER, color, i > 0) for i, w in enumerate(text.upper().split(" "))]
+    return [TextFragment(tracked(w, HEADER_SPACE), FONT_HEADER, color, i > 0)
+            for i, w in enumerate(text.upper().split(" "))]
 
 
 # --- renderer -----------------------------------------------------------------
@@ -282,7 +335,7 @@ class Renderer:
         suit = next((s for k, s in self.suit_keywords.items() if k in word), None)
         bold = suit is not None or BOLD_WORD.match(word) is not None
         color = suit.color if suit else default_color
-        return TextFragment(word + WORD_SPACER, FONT_BODY_BOLD if bold else FONT_BODY, color,
+        return TextFragment(tracked(word), FONT_BODY_BOLD if bold else FONT_BODY, color,
                             forces_newline, paragraph_break)
 
     def _blank_card(self, background=WHITE):
@@ -330,7 +383,7 @@ class Renderer:
         section = int(fh * SITE_RESOURCE_SECTION_PCT)
         icon_h = section - padding
         y = fh - (int(fh * bottom_region_pct) + padding // 2 + icon_h)
-        paste_fit_centered(canvas, card.image, ux, y, uw, icon_h)
+        paste_fit_centered(canvas, card.image, ux, y, uw, icon_h, suit_color=self.suits[card.suit].color)
 
     def site_front(self, card: Card) -> Image.Image:
         suit = self.suits[card.suit]
@@ -341,7 +394,7 @@ class Renderer:
         # Striped cost strip along the bottom with the cost text on a white label
         cost_h = int(fh * SITE_COST_REGION_PCT)
         draw_stripes(canvas, suit.color, rising=True, clip=(0, fh - cost_h, fw, cost_h))
-        cost_text = card.text(self.language)
+        cost_text = tracked(card.text(self.language))
         tw, th = draw.textbbox((0, 0), cost_text, font=FONT_SITE)[2], sum(FONT_SITE.getmetrics())
         tx, ty = fw // 2 - tw // 2, int((fh - cost_h) + cost_h * 0.1)
         pad = th // 4
@@ -351,7 +404,7 @@ class Renderer:
         self._material_icon_band(canvas, card, SITE_COST_REGION_PCT)
 
         # Material name just above the icon band
-        name = card.title(self.language).upper()
+        name = tracked(card.title(self.language).upper())
         name_h = sum(FONT_HEADER.getmetrics())
         name_y = fh - (cost_h + int(fh * SITE_RESOURCE_SECTION_PCT) + name_h)
         draw_translucent(canvas, lambda d: d.rectangle((ux, name_y, ux + uw, name_y + name_h), fill=(255, 255, 255, 100)))
@@ -367,17 +420,19 @@ class Renderer:
         ux, uy, uw, uh = self.geo.usable
         draw_stripes(canvas, suit.color, rising=False)
 
-        name = card.title(self.language).upper()
-        subtitle = card.back_text(self.language)
+        name = tracked(card.title(self.language).upper())
+        subtitle = tracked(card.back_text(self.language))
         name_h = sum(FONT_HEADER.getmetrics())
         sub_h = sum(FONT_SITE.getmetrics())
+        name_w = draw.textlength(name.rstrip(TEXT_SPACE), font=FONT_HEADER)
+        sub_w = draw.textlength(subtitle.rstrip(TEXT_SPACE), font=FONT_SITE)
         top = uy + uh // 2 - (name_h + sub_h) // 2
-        box_w = int(uw * 0.6)
+        # White label sized to the wider of the two lines, with a margin, never past the safe area
+        pad = sub_h // 2
+        box_w = min(int(max(name_w, sub_w)) + 2 * pad, uw)
         draw.rectangle((ux + (uw - box_w) // 2, top - name_h // 2, ux + (uw + box_w) // 2, top + name_h + sub_h + sub_h // 2), fill=WHITE)
-        name_w = draw.textbbox((0, 0), name, font=FONT_HEADER)[2]
-        sub_w = draw.textbbox((0, 0), subtitle, font=FONT_SITE)[2]
-        draw.text((ux + uw // 2 - name_w // 2, top), name, font=FONT_HEADER, fill=BLACK)
-        draw.text((ux + uw // 2 - sub_w // 2, top + name_h), subtitle, font=FONT_SITE, fill=BLACK)
+        draw.text((ux + int(uw / 2 - name_w / 2), top), name, font=FONT_HEADER, fill=BLACK)
+        draw.text((ux + int(uw / 2 - sub_w / 2), top + name_h), subtitle, font=FONT_SITE, fill=BLACK)
         return canvas
 
     def merchant_bonus(self, card: Card) -> Image.Image:
@@ -427,12 +482,12 @@ class Renderer:
         ux, uy, uw, uh = self.geo.usable
         fx, fy, fw, fh = self.geo.full
 
-        image_bottom = fy + paste_full_width(canvas, card.image, fx, fy, fw, center_on_content=True)
+        image_bottom = fy + paste_full_width(canvas, card.image, fx + int(fw * card.image_offset), fy, fw, suit_color=suit.color)
 
         # Role icon with its name spelled vertically underneath
         icon_w = int(uw * ROLE_ICON_PCT)
         icon_h = int(icon_w * ROLE_ICON_ASPECT)
-        paste_scaled(canvas, suit.role_icon, ux, uy, icon_w, icon_h)
+        paste_scaled(canvas, suit.role_icon, ux, uy, icon_w, icon_h, suit_color=suit.color)
         letters = [TextFragment(ch, FONT_HEADER, suit.color, True) for ch in suit.role(self.language).upper()]
         letter_w = max(_measure(draw, f)[0] for f in letters)
         draw_fragments_centered(canvas, letters, (ux + int(icon_w / 2 - letter_w / 2), uy + icon_h, letter_w, uh),
@@ -448,7 +503,7 @@ class Renderer:
 
         # Bottom band: material name at the right, influence coins at the left (original size and spacing).
         # Only the text's cap height bounds the body text above; the coins may rise past it.
-        material = self.material_name(suit).upper() + WORD_SPACER
+        material = tracked(self.material_name(suit).upper())
         mat_w, mat_h = _measure(draw, TextFragment(material, FONT_HEADER, suit.color))
         mat_y = uy + uh - mat_h
         draw.text((ux + uw - mat_w, mat_y), material, font=FONT_HEADER, fill=suit.color)

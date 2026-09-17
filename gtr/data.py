@@ -33,6 +33,7 @@ class Card:
     copies: int
     image: str
     back_image: str
+    image_offset: float  # fraction of card width to nudge the artwork; corrects bbox centering by eye
     _row: dict
 
     def title(self, language: str) -> str:
@@ -64,7 +65,8 @@ def load_suits() -> dict:
 
 def load_cards() -> dict:
     return {
-        r["key"]: Card(r["key"], r["type"], r["suit"], r["set"], int(r["copies"]), r["image"], r["back_image"], r)
+        r["key"]: Card(r["key"], r["type"], r["suit"], r["set"], int(r["copies"]), r["image"], r["back_image"],
+             float(r.get("image_offset") or 0), r)
         for r in _read("cards.csv")
     }
 
