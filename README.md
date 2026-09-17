@@ -26,7 +26,17 @@ python3 render_card.py --all --bleed 2       # sangrado de 2 mm en vez de los 3 
 python3 render_card.py --all --sets Standard Republic --types order site
 ```
 
-Cada PNG lleva las copias en el nombre: `Academy_es(3x).png`, `Site Wood_back_es(6x).png`, `Order Back(195x).png`.
+La salida se organiza en cinco carpetas, una por tipo de carta, cada una con sus anversos y reversos, más un `LEEME.txt` que explica cómo emparejarlos (nombres de carpeta y texto en el idioma elegido; en inglés, `README.txt`):
+
+```
+1 Cartas de orden/       Academy_es(3x).png …  +  Reverso cartas de orden(195x).png (común)
+2 Solares/               Site Brick_es(6x).png  +  Site Brick_back_es(6x).png
+3 Bonus de comerciante/  Merchant Bonus Brick_es(1x).png  +  …_back_es(1x).png (idéntico)
+4 Lider/                 Leader_es(1x).png  +  Leader_back_es(1x).png (idéntico)
+5 Senador/               Jack_es(6x).png (espada)  +  Jack_back_es(6x).png (pluma)
+```
+
+Cada PNG lleva las copias en el nombre.
 
 Los PNG salen en `output/`: RGB aplanado sobre blanco (sin transparencia), 300 dpi y perfil sRGB incrustado. Tamaño póker (63,5 × 88,9 mm) más el sangrado por cada lado: con 3 mm, 820 × 1120 px. Las esquinas son rectas: el redondeo lo hace la imprenta al troquelar.
 

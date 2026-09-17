@@ -9,7 +9,7 @@ import zipfile
 import streamlit as st
 
 from gtr.data import languages, load_cards
-from gtr.deck import CARD_TYPES, SETS, png_bytes, render_deck, select_cards
+from gtr.deck import CARD_TYPES, SETS, png_bytes, readme, render_deck, select_cards
 from gtr.render import CardGeometry, CardSize, Renderer
 
 LANGUAGE_NAMES = {"en": "English", "es": "Español"}
@@ -62,8 +62,9 @@ with st.expander("Vista previa de una carta"):
 if st.button("Generar zip", type="primary", disabled=not selected):
     buffer = io.BytesIO()
     progress = st.progress(0.0, text="Renderizando…")
-    total = sum(2 if c.type in ("site", "jack") else 1 for c in selected) + (1 if include_back else 0)
+    total = sum(1 if c.type == "order" else 2 for c in selected) + (1 if include_back else 0)
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr(*readme(renderer))
         for i, (name, image) in enumerate(render_deck(renderer, selected, include_back), start=1):
             zf.writestr(f"{name}.png", png_bytes(image))
             progress.progress(min(i / total, 1.0), text=f"Renderizando… {name}")

@@ -12,7 +12,7 @@ from collections import Counter
 from pathlib import Path
 
 from gtr.data import load_cards
-from gtr.deck import CARD_TYPES, SETS, png_bytes, render_deck, select_cards
+from gtr.deck import CARD_TYPES, SETS, png_bytes, readme, render_deck, select_cards
 from gtr.render import CardGeometry, CardSize, Renderer
 
 
@@ -56,8 +56,12 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, image in render_deck(renderer, cards, include_order_back=args.all):
         path = out_dir / f"{name}.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(png_bytes(image))
         print(f"Wrote {path}")
+    if args.all:
+        name, text = readme(renderer)
+        (out_dir / name).write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
